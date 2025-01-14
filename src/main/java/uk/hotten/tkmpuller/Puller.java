@@ -52,6 +52,22 @@ public class Puller {
     };
 
     public static void main(String[] args) throws InterruptedException {
+        // clear codes
+        System.out.println("TKM Puller v1.0");
+        System.out.println(" ");
+        System.out.println("Clearing current code finder price files...");
+        try {
+            File dir = new File("/volume1/tkm/");
+            for (File f : dir.listFiles()) {
+                if (f.getName().startsWith("cf-")) {
+                    f.delete();
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Failed to clear code finder price files: " + e.getMessage());
+        }
+
+        System.out.println("Starting category pull-down...");
         for (String s : categories) {
             processCategory(s);
             TimeUnit.SECONDS.sleep(1);
@@ -59,12 +75,12 @@ public class Puller {
     }
 
     private static void processCategory(String category) {
-        System.out.println("Processing " + category);
+        System.out.println("Processing category " + category);
         int amountProcessed = 0;
         int max = Integer.MAX_VALUE;
         try {
             while (amountProcessed < max) {
-                URL url = new URL("https://core.dxpapi.com/api/v1/core/?_br_uid_2=uid%3D7797686432023%3Av%3D11.5%3Ats%3D1428617911187%3Ahc%3D55&account_id=7256&domain_key=tkmaxx&ref_url=https%3A%2F%2Ftkmaxx.com&request_type=search&search_type=keyword&facet.range=price&fl=pid%2Ctitle%2Cprice%2Cdescription%2Curl%2Cbrand%2Cthumb_image%2Ccode%2Cmaterial%2Ccolor%2Ccolor_group%2Crrp%2Cfmt_rrp%2Csave_price%2Cfmt_save_price%2Cstyle_name%2Cwas_price%2Cfmt_was_price%2Cpercent_saving%2Cstock%2Cstock_status%2Cis_low_stock%2Cmat_badge_name%2Cmat_badge_image%2Cmat_badge_aa_text%2Cbadge_name%2Cbadge_image%2Cbadge_aa_text%2Cfmt_unit_price%2Cprimary_category_name%2Cis_shy_brand%2Cbundle_price%2Cbundle_rrp%2Cbundle_was_price%2Cdepartment%2Cis_bundle%2Cfmt_price%2Cskuid%2Cprimary_category_code%2Cprimary_category_path%2Cpublished_date%2Cpublished_days%2Cmh_dept_name%2Cmh_dept%2Cmh_class%2Cmh_class_name%2Cbundle_name%2Cbundle_skuid%2Cenvironment&rows=200&start=" + amountProcessed + "&stats.field=price%2CMARGIN_DOLLAR&url=https%3A%2F%2Fp1-tjx.tkmaxx.com&view_id=tkmaxx-uk&q=" + category);
+                URL url = new URL("http://core.dxpapi.com/api/v1/core/?_br_uid_2=uid%3D7797686432023%3Av%3D11.5%3Ats%3D1428617911187%3Ahc%3D55&account_id=7256&domain_key=tkmaxx&ref_url=https%3A%2F%2Ftkmaxx.com&request_type=search&search_type=keyword&facet.range=price&fl=pid%2Ctitle%2Cprice%2Cdescription%2Curl%2Cbrand%2Cthumb_image%2Ccode%2Cmaterial%2Ccolor%2Ccolor_group%2Crrp%2Cfmt_rrp%2Csave_price%2Cfmt_save_price%2Cstyle_name%2Cwas_price%2Cfmt_was_price%2Cpercent_saving%2Cstock%2Cstock_status%2Cis_low_stock%2Cmat_badge_name%2Cmat_badge_image%2Cmat_badge_aa_text%2Cbadge_name%2Cbadge_image%2Cbadge_aa_text%2Cfmt_unit_price%2Cprimary_category_name%2Cis_shy_brand%2Cbundle_price%2Cbundle_rrp%2Cbundle_was_price%2Cdepartment%2Cis_bundle%2Cfmt_price%2Cskuid%2Cprimary_category_code%2Cprimary_category_path%2Cpublished_date%2Cpublished_days%2Cmh_dept_name%2Cmh_dept%2Cmh_class%2Cmh_class_name%2Cbundle_name%2Cbundle_skuid%2Cenvironment&rows=200&start=" + amountProcessed + "&stats.field=price%2CMARGIN_DOLLAR&url=https%3A%2F%2Fp1-tjx.tkmaxx.com&view_id=tkmaxx-uk&q=" + category);
 
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
@@ -89,12 +105,21 @@ public class Puller {
 
                     ObjectMapper objectMapper = new ObjectMapper();
                     Data.ResponseWrapper responseWrapper = objectMapper.readValue(inline, Data.ResponseWrapper.class);
-                    System.out.println("Success: found " + responseWrapper.response.numFound);
+                    System.out.println("Found " + responseWrapper.response.numFound);
                     max = responseWrapper.response.numFound;
 
                     for (Data.Doc d : responseWrapper.response.docs) {
-                        File file = new File("C:\\tkm\\" + d.pid + ".json");
+                        File file = new File("/volume1/tkm/" + d.pid + ".json");
                         objectMapper.writeValue(file, d);
+
+                        // Code finder
+                        String cfPrice = Double.toString(d.price);
+                        cfPrice = cfPrice.replace(".", "");
+                        File cfFile = new File("/volume1/tkm/cf-" + d.mhDept + "-" + cfPrice + ".txt");
+                        if (!cfFile.exists() && !cfFile.isDirectory()) {
+                            objectMapper.writeValue(cfFile, d.code.substring(0, 2) + " / 10 / " + d.code.substring(2, 8) + " / " + d.fmtPrice);
+                        }
+
                         amountProcessed++;
                     }
                 }
@@ -104,5 +129,4 @@ public class Puller {
             System.out.println("Failed: " + e.getMessage());
         }
     }
-
 }
